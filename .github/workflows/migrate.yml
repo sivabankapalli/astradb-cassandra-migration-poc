@@ -43,8 +43,13 @@ jobs:
             if [[ ! "${ASTRA_DB_KEYSPACE}" =~ ^[A-Za-z0-9_]+$ ]]; then
              echo "ERROR: keyspace must be alphanumerics/underscore only" && exit 1
             fi
+      - name: Debug - show compiled classes
+        shell: bash
+        run: |
+            set -euo pipefail
+            find src/main/java -maxdepth 4 -type f -name "*.java" -print
 
-      - name: Run migrations (with stack trace)
+      - name: Run migrations
         shell: bash
         env:
             ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
@@ -52,5 +57,7 @@ jobs:
             ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
         run: |
             set -euo pipefail
-            mvn -e -X -DskipTests exec:java
+            mvn -q -DskipTests clean package
+            mvn -q -DskipTests exec:java -Dexec.mainClass=poc.Migrate
+
 
