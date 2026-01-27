@@ -32,12 +32,25 @@ jobs:
           echo "ASTRA_SCB_PATH=$(pwd)/.astra/secure-connect.zip" >> $GITHUB_ENV
           ls -la .astra/secure-connect.zip
 
-      - name: Run migrations
+      - name: Validate keyspace
         shell: bash
         env:
-          ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
-          ASTRA_DB_TOKEN: ${{ secrets.ASTRA_DB_TOKEN }}
-          ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
+            ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
         run: |
-          set -euo pipefail
-          mvn -q -DskipTests exec:java
+            set -euo pipefail
+            echo "Keyspace: '${ASTRA_DB_KEYSPACE}'"
+            if [[ -z "${ASTRA_DB_KEYSPACE}" ]]; then echo "ERROR: empty keyspace" && exit 1; fi
+            if [[ ! "${ASTRA_DB_KEYSPACE}" =~ ^[A-Za-z0-9_]+$ ]]; then
+             echo "ERROR: keyspace must be alphanumerics/underscore only" && exit 1
+            fi
+
+      - name: Run migrations (with stack trace)
+        shell: bash
+        env:
+            ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
+            ASTRA_DB_TOKEN: ${{ secrets.ASTRA_DB_TOKEN }}
+            ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
+        run: |
+            set -euo pipefail
+            mvn -e -X -DskipTests exec:java
+

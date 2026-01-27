@@ -92,7 +92,7 @@ public class Migrate {
     // Here, we hardcode for PoC simplicity; you can extend later.
     // Better: keep a manifest file migrations/index.txt
     return Arrays.asList(
-      "V1__create_customer.cql",
+      "V1__create_user.cql",
       "V2__add_index.cql"
     );
   }
