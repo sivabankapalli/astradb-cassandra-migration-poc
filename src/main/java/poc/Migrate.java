@@ -70,12 +70,16 @@ public class Migrate {
     return set;
   }
 
-  private static void recordApplied(CqlSession session, int version, String file) {
-    session.execute(SimpleStatement.builder(
-        "INSERT INTO schema_migrations (version, description, installed_on) VALUES (?, ?, ?)")
-      .addPositionalValues(version, file, Date.from(Instant.now()))
-      .build());
-  }
+private static void recordApplied(CqlSession session, int version, String file) {
+  session.execute(
+      SimpleStatement.builder(
+              "INSERT INTO schema_migrations (version, description, installed_on) VALUES (?, ?, ?)")
+          .addPositionalValue(version)
+          .addPositionalValue(file)
+          .addPositionalValue(Instant.now())
+          .build()
+  );
+}
 
   private static void applyCql(CqlSession session, String cql) {
     // Very simple splitter: executes statements separated by ';'
