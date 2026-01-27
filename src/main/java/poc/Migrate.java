@@ -30,24 +30,22 @@ public class Migrate {
 
       ensureSchemaMigrationsTable(session);
 
-      List<String> all = listMigrationResources();
-      all.sort(Comparator.comparingInt(Migrate::versionOf));
+        List<String> all = listMigrationResources();
+        Set<Integer> applied = loadAppliedVersions(session);
 
-      Set<Integer> applied = loadAppliedVersions(session);
+        for (String file : all) {
+          int ver = versionOf(file);
+          if (applied.contains(ver)) {
+            System.out.println("Skipping already applied: " + file);
+            continue;
+          }
 
-      for (String file : all) {
-        int ver = versionOf(file);
-        if (applied.contains(ver)) {
-          System.out.println("Skipping already applied: " + file);
-          continue;
+          String cql = readResource(MIGRATIONS_DIR + file);
+          applyCql(session, cql);
+
+          recordApplied(session, ver, file);
+          System.out.println("Applied: " + file);
         }
-
-        String cql = readResource(MIGRATIONS_DIR + file);
-        applyCql(session, cql);
-
-        recordApplied(session, ver, file);
-        System.out.println("Applied: " + file);
-      }
 
       System.out.println("All migrations complete.");
     }
@@ -91,7 +89,7 @@ private static void recordApplied(CqlSession session, int version, String file) 
     }
   }
 
-  private static List<String> listMigrationResources() throws Exception {
+  /*private static List<String> listMigrationResources() throws Exception {
     // Works because resources are on the classpath; in Maven exec, we can list via ClassLoader
     // Here, we hardcode for PoC simplicity; you can extend later.
     // Better: keep a manifest file migrations/index.txt
@@ -99,7 +97,59 @@ private static void recordApplied(CqlSession session, int version, String file) 
       "V1__create_user.cql",
       "V2__add_index.cql"
     );
+  }*/
+
+  private static List<String> listMigrationResources() throws Exception {
+  ClassLoader cl = Migrate.class.getClassLoader();
+  URL dirUrl = cl.getResource(MIGRATIONS_DIR); // e.g. "migrations/"
+  if (dirUrl == null) {
+    throw new IllegalArgumentException("Missing migrations folder on classpath: " + MIGRATIONS_DIR +
+        " (expected under src/main/resources/" + MIGRATIONS_DIR + ")");
   }
+
+  String protocol = dirUrl.getProtocol();
+
+  if ("file".equals(protocol)) {
+    // Running from filesystem (e.g., target/classes/migrations)
+    Path dirPath = Paths.get(dirUrl.toURI());
+    try (Stream<Path> paths = Files.list(dirPath)) {
+      return paths
+          .filter(Files::isRegularFile)
+          .map(p -> p.getFileName().toString())
+          .filter(name -> VERSIONED.matcher(name).matches())
+          .sorted(Comparator.comparingInt(Migrate::versionOf))
+          .collect(Collectors.toList());
+    }
+  }
+
+  if ("jar".equals(protocol)) {
+    // Running from a jar
+    URI jarUri = dirUrl.toURI(); // jar:file:/.../app.jar!/migrations/
+    String s = jarUri.toString();
+    String jarPath = s.substring("jar:".length(), s.indexOf("!")); // file:/.../app.jar
+
+    try (JarFile jar = new JarFile(Paths.get(URI.create(jarPath)).toFile())) {
+      List<String> files = new ArrayList<>();
+      Enumeration<JarEntry> entries = jar.entries();
+      while (entries.hasMoreElements()) {
+        JarEntry e = entries.nextElement();
+        String name = e.getName(); // migrations/V1__x.cql
+        if (e.isDirectory()) continue;
+        if (!name.startsWith(MIGRATIONS_DIR)) continue;
+
+        String fileNameOnly = name.substring(MIGRATIONS_DIR.length()); // V1__x.cql
+        if (VERSIONED.matcher(fileNameOnly).matches()) {
+          files.add(fileNameOnly);
+        }
+      }
+      files.sort(Comparator.comparingInt(Migrate::versionOf));
+      return files;
+    }
+  }
+
+  throw new IllegalStateException("Unsupported classpath protocol for migrations folder: " + protocol);
+}
+
 
   private static int versionOf(String filename) {
     Matcher m = VERSIONED.matcher(filename);
