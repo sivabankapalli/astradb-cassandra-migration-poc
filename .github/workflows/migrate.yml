@@ -1,0 +1,43 @@
+name: Cassandra Migration Tool - AstraDB (PoC)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "src/**"
+      - "pom.xml"
+      - ".github/workflows/migrate.yml"
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Recreate Secure Connect Bundle
+        shell: bash
+        env:
+          ASTRA_SCB_BASE64: ${{ secrets.ASTRA_SCB_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p .astra
+          echo "$ASTRA_SCB_BASE64" | base64 -d > .astra/secure-connect.zip
+          echo "ASTRA_SCB_PATH=$(pwd)/.astra/secure-connect.zip" >> $GITHUB_ENV
+          ls -la .astra/secure-connect.zip
+
+      - name: Run migrations
+        shell: bash
+        env:
+          ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
+          ASTRA_DB_TOKEN: ${{ secrets.ASTRA_DB_TOKEN }}
+          ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
+        run: |
+          set -euo pipefail
+          mvn -q -DskipTests exec:java
