@@ -1,4 +1,4 @@
-name: Cassandra Migration Tool - AstraDB (PoC)
+name: CQL Migration Runner - AstraDB (PoC)
 
 on:
   push:
