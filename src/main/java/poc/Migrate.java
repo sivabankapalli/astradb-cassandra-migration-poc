@@ -11,6 +11,13 @@ import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 public class Migrate {
 
