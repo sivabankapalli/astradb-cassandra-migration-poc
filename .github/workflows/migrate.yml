@@ -1,10 +1,11 @@
-name: CQL Migration Runner - AstraDB (PoC)
+name: Cassandra Migration Tool - AstraDB (patka/cassandra-migration)
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "src/**"
+      - "src/main/resources/cassandra/migration/**"
+      - "src/main/java/**"
       - "pom.xml"
       - ".github/workflows/migrate.yml"
   workflow_dispatch:
@@ -12,6 +13,7 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -35,29 +37,22 @@ jobs:
       - name: Validate keyspace
         shell: bash
         env:
-            ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
+          ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
         run: |
-            set -euo pipefail
-            echo "Keyspace: '${ASTRA_DB_KEYSPACE}'"
-            if [[ -z "${ASTRA_DB_KEYSPACE}" ]]; then echo "ERROR: empty keyspace" && exit 1; fi
-            if [[ ! "${ASTRA_DB_KEYSPACE}" =~ ^[A-Za-z0-9_]+$ ]]; then
-             echo "ERROR: keyspace must be alphanumerics/underscore only" && exit 1
-            fi
-      - name: Debug - show compiled classes
-        shell: bash
-        run: |
-            set -euo pipefail
-            find src/main/java -maxdepth 4 -type f -name "*.java" -print
+          set -euo pipefail
+          echo "Keyspace: '${ASTRA_DB_KEYSPACE}'"
+          if [[ -z "${ASTRA_DB_KEYSPACE}" ]]; then echo "ERROR: empty keyspace" && exit 1; fi
+          if [[ ! "${ASTRA_DB_KEYSPACE}" =~ ^[A-Za-z0-9_]+$ ]]; then
+            echo "ERROR: keyspace must be alphanumerics/underscore only" && exit 1
+          fi
 
-      - name: Run migrations
+      - name: Run migrations (patka/cassandra-migration)
         shell: bash
         env:
-            ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
-            ASTRA_DB_TOKEN: ${{ secrets.ASTRA_DB_TOKEN }}
-            ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
+          ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
+          ASTRA_DB_TOKEN: ${{ secrets.ASTRA_DB_TOKEN }}
+          ASTRA_SCB_PATH: ${{ env.ASTRA_SCB_PATH }}
         run: |
-            set -euo pipefail
-            mvn -q -DskipTests clean package
-            mvn -q -DskipTests exec:java -Dexec.mainClass=poc.Migrate
-
-
+          set -euo pipefail
+          mvn -q -DskipTests clean package
+          mvn -q -DskipTests exec:java -Dexec.mainClass=poc.RunMigrations
