@@ -56,3 +56,8 @@ jobs:
           set -euo pipefail
           mvn -q -DskipTests clean package
           mvn -q -DskipTests exec:java -Dexec.mainClass=poc.RunMigrations
+
+      - name: Show migration history
+        run: |
+            astra db cqlsh exec "$ASTRA_DB_ID" -k "$ASTRA_DB_KEYSPACE" --token "$ASTRA_DB_TOKEN" \
+            "SELECT * FROM cassandra_migration;"
